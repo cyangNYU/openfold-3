@@ -44,6 +44,7 @@ def process_template_structures_of3(
     template_file_format: str,
     ccd: CIFFile | None,
     use_roda_monomer_format: bool = False,
+    cif_assembly_cache: dict[str, tuple] | None = None,
 ) -> TemplateSliceCollection:
     """Processes template structures for all chains of a given target structure.
 
@@ -81,6 +82,10 @@ def process_template_structures_of3(
         use_roda_monomer_format (bool):
             Whether template cache filepath is expected to be in the s3 RODA monomer
             format: <aln_dir>/<mgy_id>/template.npz
+        cif_assembly_cache (dict[str, tuple] | None):
+            Optional cache dictionary mapping PDB IDs to (cif_file, atom_array_assembly)
+            tuples. Used to avoid re-parsing the same CIF file when multiple chains from
+            the same structure are needed. If None, a new cache will be created.
     Returns:
         TemplateSliceCollection:
             The sliced template atomarrays for each chain in the crop.
@@ -94,6 +99,10 @@ def process_template_structures_of3(
         and template_structures_directory is None
     ):
         return TemplateSliceCollection(template_slices={})
+
+    # Initialize CIF assembly cache if not provided (to avoid re-parsing same PDB files)
+    if cif_assembly_cache is None:
+        cif_assembly_cache = {}
 
     # Iterate over protein chains in the atom array
     # TODO: currently, this re-processes templates identical chains, add redundancy
@@ -120,6 +129,7 @@ def process_template_structures_of3(
             template_file_format=template_file_format,
             ccd=ccd,
             atom_array_query_chain=atom_array[atom_array.chain_id == chain_id],
+            cif_assembly_cache=cif_assembly_cache,
         )
 
     return TemplateSliceCollection(template_slices=template_slices)

@@ -41,6 +41,7 @@ and highlight where you currently are in the process:
 
 import dataclasses
 import enum
+import logging
 import random
 import warnings
 from typing import Any
@@ -74,6 +75,7 @@ from openfold3.core.data.tools.colabfold_msa_server import (
 from openfold3.core.utils.tensor_utils import dict_multimap
 
 _NUMPY_AVAILABLE = RequirementCache("numpy")
+logger = logging.getLogger(__name__)
 
 
 class DatasetMode(enum.Enum):
@@ -516,8 +518,15 @@ class InferenceDataModule(DataModule):
         self.inference_config = _configs.configs[0]
 
     def prepare_data(self) -> None:
+        logger.info("=" * 60)
+        logger.info(
+            f"Prepare data: use_msa_server={self.use_msa_server}, use_templates={self.use_templates}"
+        )
+        logger.info("=" * 60)
+
         # Colabfold msa preparation
         if self.use_msa_server:
+            logger.info("Running ColabFold MSA server...")
             self.inference_config.query_set = preprocess_colabfold_msas(
                 inference_query_set=self.inference_config.query_set,
                 compute_settings=self.msa_computation_settings,
@@ -529,11 +538,13 @@ class InferenceDataModule(DataModule):
             )
 
         if self.use_templates:
+            logger.info("Running template preprocessing...")
             template_preprocessor = TemplatePreprocessor(
                 input_set=self.inference_config.query_set,
                 config=self.inference_config.template_preprocessor_settings,
             )
             template_preprocessor()
+            logger.info("Template preprocessing complete!")
 
     def setup(self, stage=None):
         """Broadcast updated query set to all ranks if multiple GPUs are used."""

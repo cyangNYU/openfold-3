@@ -637,6 +637,9 @@ def extract_alignments_to_pair(
             if m is not None:
                 msa_arrays_to_pair_i.append(m)
 
+        if not msa_arrays_to_pair_i:
+            continue
+
         msa_arrays_to_pair_cat = MsaArray.multi_concatenate(
             msa_arrays=msa_arrays_to_pair_i,
             axis=0,
