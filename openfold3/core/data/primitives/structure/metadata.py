@@ -513,9 +513,13 @@ def writer_update_atom_site(
         for mt, mtn in zip(MoleculeType, MoleculeType._member_names_, strict=True)
     }
 
-    label_seq_id = cif_block["atom_site"]["label_seq_id"].as_array()
-    label_seq_id[masks["LIGAND"]] = "."
-    cif_block["atom_site"]["label_seq_id"] = label_seq_id
+    ligand_res_id = atom_array.res_id.astype(str)
+    for seq_id_field in ("label_seq_id", "auth_seq_id"):
+        seq_id = cif_block["atom_site"][seq_id_field].as_array()
+        seq_id = seq_id.astype(np.result_type(seq_id.dtype, ligand_res_id.dtype))
+        missing_ligand_seq_id = masks["LIGAND"] & np.isin(seq_id, [".", "?"])
+        seq_id[missing_ligand_seq_id] = ligand_res_id[missing_ligand_seq_id]
+        cif_block["atom_site"][seq_id_field] = seq_id
 
     PDB_ins_code = cif_block["atom_site"]["pdbx_PDB_ins_code"].as_array()
     PDB_ins_code[masks["LIGAND"]] = "?"
