@@ -75,10 +75,12 @@ channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64"]
 version = "0.4.0"
 
-# as we use task.default-environment
-# hoping for environment markers to also come to conda dependencies, as it would help simplifying this toml
-# https://github.com/prefix-dev/pixi/blob/main/CHANGELOG.md#-highlights-1
-requires-pixi = ">=0.64"
+# - as we use task.default-environment
+#   hoping for environment markers to also come to conda dependencies,
+#   as it would help simplifying this toml
+#   https://github.com/prefix-dev/pixi/blob/main/CHANGELOG.md#-highlights-1
+# - as our lockfiles are now v7
+requires-pixi = ">=0.68"
 
 # --- Environments
 
@@ -190,11 +192,14 @@ pandas = "*"
 ml-collections = "*"
 
 # --- Handling molecules
-rdkit = "*"
+# with newer rdkit we are failing one test:
+# openfold3/tests/core/data/primitives/structure/test_conformer.py::test_compute_conformer_snapshot[paracetamol_default_no_hs]
+rdkit = "<2026"
 biotite = ">=1.6"
 pdbeccdutils = "*"
 
 # --- Bioinformatics & Workflows
+kalign-python = "*"
 hmmer = "*"
 hhsuite = "*"
 snakemake = "*"

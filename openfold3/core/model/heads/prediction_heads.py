@@ -145,15 +145,13 @@ class PairformerEmbedding(nn.Module):
         )
 
         for i in range(no_samples):
-            zij_chunk = self.embed_zij(
-                si_input=si_input, zij=zij, x_pred=x_pred[:, i : i + 1]
-            )
-
-            si_chunk, zij_chunk = self.pairformer_stack(
-                si.clone(),  # Avoid inplace ops on si
-                zij_chunk,
-                single_mask,
-                pair_mask,
+            si_chunk, zij_chunk = self.pairformer_emb(
+                si_input=si_input,
+                si=si.clone(),  # Avoid inplace ops on si
+                zij=zij,
+                x_pred=x_pred[..., i : i + 1, :, :],
+                single_mask=single_mask,
+                pair_mask=pair_mask,
                 chunk_size=chunk_size,
                 use_deepspeed_evo_attention=use_deepspeed_evo_attention,
                 use_cueq_triangle_kernels=use_cueq_triangle_kernels,
@@ -302,6 +300,32 @@ class PairformerEmbedding(nn.Module):
             zij:
                 [*, N_token, N_token, C_z] Updated pair representation
         """
+
+        batch_dim_counts = {
+            "x_pred": x_pred.dim() - 2,
+            "si_input": si_input.dim() - 2,
+            "si": si.dim() - 2,
+            "zij": zij.dim() - 3,
+            "single_mask": single_mask.dim() - 1,
+            "pair_mask": pair_mask.dim() - 2,
+        }
+
+        if len(set(batch_dim_counts.values())) != 1:
+            raise ValueError(
+                f"Inputs have different number of batch dimensions:\n"
+                f"{batch_dim_counts}.\n"
+                f"Shapes: x_pred={(*x_pred.shape,)},\n"
+                f"si_input={(*si_input.shape,)},\n"
+                f"si={(*si.shape,)}, zij={(*zij.shape,)},\n"
+                f"single_mask={(*single_mask.shape,)},\n"
+                f"pair_mask={(*pair_mask.shape,)}"
+            )
+
+        if apply_per_sample and batch_dim_counts["x_pred"] < 1:
+            raise ValueError(
+                "apply_per_sample is not compatible with no batch dimensions"
+            )
+
         if apply_per_sample:
             si, zij = self.per_sample_pairformer_emb(
                 si_input=si_input,
@@ -382,7 +406,9 @@ class PredictedAlignedErrorHead(nn.Module):
         )
         no_samples = zij.shape[-4]
         for i in range(no_samples):
-            zij_out[:, i : i + 1] = self._compute_logits(zij[:, i : i + 1])
+            zij_out[..., i : i + 1, :, :, :] = self._compute_logits(
+                zij[..., i : i + 1, :, :, :]
+            )
 
         return zij_out
 
@@ -452,7 +478,9 @@ class PredictedDistanceErrorHead(nn.Module):
         )
         no_samples = zij.shape[-4]
         for i in range(no_samples):
-            zij_out[:, i : i + 1] = self._compute_logits(zij[:, i : i + 1])
+            zij_out[..., i : i + 1, :, :, :] = self._compute_logits(
+                zij[..., i : i + 1, :, :, :]
+            )
 
         return zij_out
 

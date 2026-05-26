@@ -142,13 +142,10 @@ def _read_datacache_file(datacache_path: Path) -> "DataCacheType":
         else:
             raise ValueError("Could not determine the type of the dataset cache.")
 
-        try:
-            # Infer which class to build
-            dataset_cache_class = DATASET_CACHE_CLASS_REGISTRY.get(dataset_cache_type)
-        except KeyError as exc:
-            raise ValueError(
-                f"Unknown dataset cache type: {dataset_cache_type}"
-            ) from exc
+        # Infer which class to build
+        dataset_cache_class = DATASET_CACHE_CLASS_REGISTRY.get(dataset_cache_type)
+        if dataset_cache_class is None:
+            raise ValueError(f"Unknown dataset cache type: {dataset_cache_type}")
 
     return dataset_cache_class.from_json(datacache_path)
 
@@ -200,13 +197,10 @@ def read_datacache(
         if not dataset_cache_type:
             raise ValueError("No type found for this directory.")
 
-        try:
-            # Infer which class to build
-            dataset_cache_class = DATASET_CACHE_CLASS_REGISTRY.get(dataset_cache_type)
-        except KeyError as exc:
-            raise ValueError(
-                f"Unknown dataset cache type: {dataset_cache_type}"
-            ) from exc
+        # Infer which class to build
+        dataset_cache_class = DATASET_CACHE_CLASS_REGISTRY.get(dataset_cache_type)
+        if dataset_cache_class is None:
+            raise ValueError(f"Unknown dataset cache type: {dataset_cache_type}")
 
         dataset_cache = dataset_cache_class.from_lmdb(
             datacache_path,

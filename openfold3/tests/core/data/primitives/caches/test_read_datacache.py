@@ -22,13 +22,13 @@ from openfold3.core.data.primitives.caches.lmdb import LMDBDict
 
 class TestReadDatacacheLMDB:
     def test_type_peek_env_cleaned_up(self, lmdb_dir):
-        """read_datacache should return a cache with a live _lmdb_env.
+        """read_datacache should return a cache with a live LMDBEnv.
 
         If the internal type-peek env leaked, lmdb.open in from_lmdb would
         raise 'already open in this process'.
         """
         cache = read_datacache(lmdb_dir)
-        assert cache._lmdb_env is not None
+        assert cache.structure_data._lmdb_env is not None
 
     def test_returns_correct_type(self, lmdb_dir):
         """Should infer the correct DatasetCache subclass from _type."""
@@ -54,5 +54,5 @@ class TestReadDatacacheLMDB:
     def test_lmdb_env_is_readonly(self, lmdb_dir):
         """The env held by from_lmdb should be opened readonly."""
         cache = read_datacache(lmdb_dir)
-        env_flags = cache._lmdb_env.flags()
+        env_flags = cache.structure_data._lmdb_env.get().flags()
         assert env_flags["readonly"] is True

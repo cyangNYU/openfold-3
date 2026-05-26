@@ -385,8 +385,6 @@ class PairBlock(nn.Module):
         )
 
         z = z.transpose(-2, -3)
-        if inplace_safe:
-            z = z.contiguous()
 
         # Using dropout_row_layer since the dimensions were transposed before
         # calling the attention layer
@@ -408,8 +406,6 @@ class PairBlock(nn.Module):
         )
 
         z = z.transpose(-2, -3)
-        if inplace_safe:
-            z = z.contiguous()
 
         return z
 

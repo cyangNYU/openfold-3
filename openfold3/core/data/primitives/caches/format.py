@@ -24,7 +24,7 @@ from typing import Literal, TypeAlias, TypeVar
 
 import lmdb
 
-from openfold3.core.data.primitives.caches.lmdb import LMDBDict
+from openfold3.core.data.primitives.caches.lmdb import LMDBDict, LMDBEnv
 from openfold3.core.data.resources.residues import MoleculeType
 
 K = TypeVar("K")
@@ -135,6 +135,7 @@ class PreprocessingDataCache:
             # rerunning preprocessing
             elif status == "failed":
                 release_date = None
+                experimental_method = None
                 resolution = None
                 chains = None
                 interfaces = None
@@ -410,12 +411,11 @@ class DatasetCache:
 
     _registered = False
     _format_validated: bool = False
-    _lmdb_env = None  # set by from_lmdb; LMDB forbids multiple opens per directory
 
     # TODO: update parsers for this base class
     @classmethod
     def from_json(cls, file: Path) -> DatasetCache:
-        """Costructs a datacache from a json.
+        """Constructs a datacache from a json.
 
         Args:
             file (Path):
@@ -435,6 +435,7 @@ class DatasetCache:
             reference_molecule_data=cls._parse_ref_mol_data_json(data),
         )
 
+    @staticmethod
     def _parse_type_json(data: dict) -> None:
         # Remove _type field (already an internal private attribute so shouldn't be
         # defined as an explicit field)
@@ -442,6 +443,7 @@ class DatasetCache:
             # This is conditional for legacy compatibility, should be removed after
             del data["_type"]
 
+    @staticmethod
     def _parse_name_json(data: dict) -> str:
         return data["name"]
 
@@ -479,6 +481,15 @@ class DatasetCache:
             per_ref_mol_data_fmt = cls._ref_mol_data_format(**per_ref_mol_data)
             ref_mol_data[ref_mol_id] = per_ref_mol_data_fmt
         return ref_mol_data
+
+    def release_connections(self) -> None:
+        """
+        Close any open backend connections so fork inherits clean state.
+        Each backend reopens lazily on next access. No-op for plain dicts.
+        """
+        for attr in (self.structure_data, self.reference_molecule_data):
+            if hasattr(attr, "close"):
+                attr.close()
 
     def to_json(self, file: Path) -> None:
         """Write the dataset cache to a JSON file.
@@ -524,29 +535,29 @@ class DatasetCache:
             DatasetCache:
                 The constructed datacache.
         """
-
-        lmdb_env = lmdb.open(
-            str(lmdb_directory), readonly=True, lock=False, subdir=True
-        )
-
-        with lmdb_env.begin() as transaction:
+        lmdb_env = LMDBEnv(str(lmdb_directory))
+        with lmdb_env.get().begin() as transaction:
             _ = cls._parse_type_lmdb(transaction, str_encoding)
             name = cls._parse_name_lmdb(transaction, str_encoding)
-            structure_data = cls._parse_structure_data_lmdb(
-                lmdb_env, str_encoding, structure_data_encoding
-            )
-            reference_molecule_data = cls._parse_ref_mol_data_lmdb(
-                lmdb_env, str_encoding, reference_molecule_data_encoding
-            )
 
-        instance = cls(
+        structure_data = cls._parse_structure_data_lmdb(
+            lmdb_env=lmdb_env,
+            str_encoding=str_encoding,
+            structure_data_encoding=structure_data_encoding,
+        )
+        reference_molecule_data = cls._parse_ref_mol_data_lmdb(
+            lmdb_env=lmdb_env,
+            str_encoding=str_encoding,
+            reference_molecule_data_encoding=reference_molecule_data_encoding,
+        )
+
+        return cls(
             name=name,
             structure_data=structure_data,
             reference_molecule_data=reference_molecule_data,
         )
-        instance._lmdb_env = lmdb_env
-        return instance
 
+    @staticmethod
     def _parse_type_lmdb(
         transaction: lmdb.Transaction, str_encoding: Literal["utf-8", "pkl"]
     ) -> str:
@@ -558,6 +569,7 @@ class DatasetCache:
 
         return _type
 
+    @staticmethod
     def _parse_name_lmdb(
         transaction: lmdb.Transaction, str_encoding: Literal["utf-8", "pkl"]
     ) -> str:
@@ -569,15 +581,12 @@ class DatasetCache:
 
         return name
 
+    @staticmethod
     def _parse_structure_data_lmdb(
-        lmdb_env: lmdb.Environment,
+        lmdb_env: LMDBEnv,
         str_encoding: Literal["utf-8", "pkl"],
         structure_data_encoding: Literal["utf-8", "pkl"],
     ) -> LMDBDict:
-        from openfold3.core.data.primitives.caches.lmdb import (
-            LMDBDict,
-        )
-
         return LMDBDict(
             lmdb_env=lmdb_env,
             prefix="structure_data",
@@ -585,15 +594,12 @@ class DatasetCache:
             value_encoding=structure_data_encoding,
         )
 
+    @staticmethod
     def _parse_ref_mol_data_lmdb(
-        lmdb_env: lmdb.Environment,
+        lmdb_env: LMDBEnv,
         str_encoding: Literal["utf-8", "pkl"],
         reference_molecule_data_encoding: Literal["utf-8", "pkl"],
     ) -> LMDBDict:
-        from openfold3.core.data.primitives.caches.lmdb import (
-            LMDBDict,
-        )
-
         return LMDBDict(
             lmdb_env=lmdb_env,
             prefix="reference_molecule_data",

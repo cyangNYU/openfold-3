@@ -17,19 +17,21 @@ import lmdb
 import pytest
 
 from openfold3.core.data.io.dataset_cache import read_datacache
-from openfold3.core.data.primitives.caches.lmdb import LMDBDict
+from openfold3.core.data.primitives.caches.lmdb import LMDBDict, LMDBEnv
 
 
 class TestDatasetCacheFromLMDB:
     def test_from_lmdb_sets_lmdb_env(self, lmdb_cache):
-        """read_datacache(lmdb_dir) should set _lmdb_env to a live lmdb.Environment."""
-        assert lmdb_cache._lmdb_env is not None
-        assert isinstance(lmdb_cache._lmdb_env, lmdb.Environment)
+        """from_lmdb should attach a live LMDBEnv to each LMDBDict."""
+        env = lmdb_cache.structure_data._lmdb_env
+        assert isinstance(env, LMDBEnv)
+        assert isinstance(env.get(), lmdb.Environment)
 
-    def test_from_json_lmdb_env_is_none(self, json_cache):
-        """from_json should leave _lmdb_env as None."""
+    def test_from_json_produces_plain_dicts(self, json_cache):
+        """from_json should produce plain dict fields, not LMDBDicts."""
         cache = read_datacache(json_cache)
-        assert cache._lmdb_env is None
+        assert not isinstance(cache.structure_data, LMDBDict)
+        assert not isinstance(cache.reference_molecule_data, LMDBDict)
 
     @pytest.mark.parametrize(
         "field",
