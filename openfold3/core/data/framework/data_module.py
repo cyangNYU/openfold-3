@@ -659,8 +659,16 @@ class InferenceDataModule(DataModule):
         self.inference_config = _configs.configs[0]
 
     def prepare_data(self) -> None:
+        logger.info("=" * 60)
+        logger.info(
+            f"Prepare data: use_msa_server={self.use_msa_server}, "
+            f"use_templates={self.use_templates}"
+        )
+        logger.info("=" * 60)
+
         # Colabfold msa preparation
         if self.use_msa_server:
+            logger.info("Running ColabFold MSA server...")
             self.inference_config.query_set = preprocess_colabfold_msas(
                 inference_query_set=self.inference_config.query_set,
                 compute_settings=self.msa_computation_settings,
@@ -672,11 +680,13 @@ class InferenceDataModule(DataModule):
             )
 
         if self.use_templates:
+            logger.info("Running template preprocessing...")
             template_preprocessor = TemplatePreprocessor(
                 input_set=self.inference_config.query_set,
                 config=self.inference_config.template_preprocessor_settings,
             )
             template_preprocessor()
+            logger.info("Template preprocessing complete!")
 
     def setup(self, stage=None):
         """Broadcast updated query set to all ranks if multiple GPUs are used."""
