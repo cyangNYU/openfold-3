@@ -139,8 +139,8 @@ def test_smiles_with_explicit_hydrogen():
     assert "ref_pos" in features
 
 
-def test_smiles_ligand_cif_seq_ids_are_numeric(tmp_path):
-    """Regression test for SMILES ligands being written with missing CIF seq IDs."""
+def test_smiles_ligand_cif_auth_seq_id_is_numeric(tmp_path):
+    """Regression test for SMILES ligands being written with missing auth seq IDs."""
     query = Query.model_validate(
         {
             "query_name": "protein_smiles_ligand",
@@ -168,5 +168,5 @@ def test_smiles_ligand_cif_seq_ids_are_numeric(tmp_path):
     ligand_mask = atom_site["label_asym_id"].as_array() == "X"
 
     assert ligand_mask.any()
-    assert set(atom_site["label_seq_id"].as_array()[ligand_mask]) == {"1"}
+    assert set(atom_site["label_seq_id"].as_array()[ligand_mask]) == {"."}
     assert set(atom_site["auth_seq_id"].as_array()[ligand_mask]) == {"1"}
