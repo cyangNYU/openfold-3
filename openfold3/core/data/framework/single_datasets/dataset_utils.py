@@ -30,6 +30,7 @@ from openfold3.core.utils.permutation_alignment import (
     naive_alignment,
 )
 
+logger = logging.getLogger(__name__)
 worker_seed_log = logging.getLogger(f"{__name__}.worker_seed")
 
 

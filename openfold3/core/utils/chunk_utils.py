@@ -26,7 +26,7 @@ from openfold3.core.utils.tensor_utils import (
 )
 
 DEFAULT_MAX_CHUNK_SIZE = 512
-CUEQ_MAX_CHUNK_SIZE = 1024
+FLASH_MAX_CHUNK_SIZE = 1024
 
 
 def _fetch_dims(tree):
@@ -363,7 +363,6 @@ class ChunkSizeTuner:
         candidates = [2**l for l in range(int(math.log(max_chunk_size, 2)) + 1)]
         candidates = [c for c in candidates if c > min_chunk_size]
         candidates = [min_chunk_size] + candidates
-        candidates[-1] += 4
 
         def test_chunk_size(chunk_size):
             try:

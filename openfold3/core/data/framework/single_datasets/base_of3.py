@@ -153,15 +153,19 @@ class BaseOF3Dataset(SingleDataset, ABC):
         # TODO: rename dataset_cache_file to dataset_cache_path to signal that it can be
         # a directory or a file
         # TODO: potentially expose the LMDB database encoding types
-        self.dataset_cache = read_datacache(
-            dataset_config.dataset_paths.dataset_cache_file
-        )
+        self._dataset_cache_file = dataset_config.dataset_paths.dataset_cache_file
+        self.dataset_cache = read_datacache(self._dataset_cache_file)
+
         self.datapoint_cache = {}
 
-        if dataset_config.dataset_paths.template_structures_directory is not None:
-            self.ccd = pdbx.CIFFile.read(dataset_config.dataset_paths.ccd_file)
-        else:
-            self.ccd = None
+        # Only used if template structures are not preprocessed
+        # Lazy-loaded so the dataset is picklable (forkserver)
+        self._ccd = None
+        self._ccd_file = (
+            dataset_config.dataset_paths.ccd_file
+            if dataset_config.dataset_paths.template_structures_directory is not None
+            else None
+        )
 
         # Dataset configuration
         # n_tokens can be set in the getitem method separately for each sample using
@@ -173,6 +177,12 @@ class BaseOF3Dataset(SingleDataset, ABC):
         # Misc
         self.single_moltype = None
         self.debug_mode = dataset_config.debug_mode
+
+    @property
+    def ccd(self):
+        if self._ccd is None and self._ccd_file is not None:
+            self._ccd = pdbx.CIFFile.read(self._ccd_file)
+        return self._ccd
 
     @log_runtime_memory(runtime_dict_key="runtime-create-structure-features")
     def create_structure_features(

@@ -25,6 +25,7 @@ import ml_collections as mlc
 import pytest
 from pytorch_lightning.loggers import WandbLogger
 
+import openfold3.core.model.primitives.initialization as initialization
 from openfold3 import setup_openfold
 from openfold3.core.config import config_utils
 from openfold3.core.data.framework.data_module import DataModuleConfig
@@ -32,6 +33,7 @@ from openfold3.entry_points.experiment_runner import (
     InferenceExperimentRunner,
     TrainingExperimentRunner,
     WandbHandler,
+    skip_random_init,
 )
 from openfold3.entry_points.parameters import (
     CHECKPOINT_ROOT_FILENAME,
@@ -81,7 +83,7 @@ class TestTrainingExperiment:
             data_module_args:
                 data_seed: 114
                 num_workers: 0
-                                        
+
             model_update:
                 presets:
                     - train
@@ -92,17 +94,17 @@ class TestTrainingExperiment:
                         shared:
                             diffusion:
                                 no_samples: 32
-                                        
+
             dataset_configs:
                 train:
                     weighted-pdb:
-                        dataset_class: WeightedPDBDataset 
-                        weight: 1 
+                        dataset_class: WeightedPDBDataset
+                        weight: 1
                         config:
                             debug_mode: true
                             crop:
                                 token_crop:
-                                    token_budget: 640 
+                                    token_budget: 640
                                 chain_crop:
                                     enabled: true
                                     n_chains: 25
@@ -121,13 +123,13 @@ class TestTrainingExperiment:
                 weighted-pdb:
                     alignments_directory: null
                     alignment_db_directory: null
-                    alignment_array_directory: {tmp_path} 
-                    target_structures_directory: {tmp_path} 
+                    alignment_array_directory: {tmp_path}
+                    target_structures_directory: {tmp_path}
                     target_structure_file_format: npz
-                    dataset_cache_file: {test_dummy_file} 
-                    reference_molecule_directory: {tmp_path} 
-                    template_cache_directory: {tmp_path} 
-                    template_structure_array_directory: {tmp_path} 
+                    dataset_cache_file: {test_dummy_file}
+                    reference_molecule_directory: {tmp_path}
+                    template_cache_directory: {tmp_path}
+                    template_structure_array_directory: {tmp_path}
                     template_structures_directory: null
                     template_file_format: pkl
                     ccd_file: null
@@ -135,13 +137,13 @@ class TestTrainingExperiment:
                 val-weighted-pdb:
                     alignments_directory: null
                     alignment_db_directory: null
-                    alignment_array_directory: {tmp_path} 
+                    alignment_array_directory: {tmp_path}
                     target_structures_directory: {tmp_path}
                     target_structure_file_format: npz
-                    dataset_cache_file: {test_dummy_file} 
-                    reference_molecule_directory: {tmp_path} 
-                    template_cache_directory: {tmp_path} 
-                    template_structure_array_directory: {tmp_path} 
+                    dataset_cache_file: {test_dummy_file}
+                    reference_molecule_directory: {tmp_path}
+                    template_cache_directory: {tmp_path}
+                    template_structure_array_directory: {tmp_path}
                     template_structures_directory: null
                     template_file_format: pkl
                     ccd_file: null
@@ -260,7 +262,7 @@ class TestModelUpdate:
               custom:
                 architecture:
                   shared:
-                    num_recycles: 1 
+                    num_recycles: 1
         """)
         test_yaml_file = tmp_path / "runner.yml"
         test_yaml_file.write_text(test_yaml_str)
@@ -286,7 +288,7 @@ class TestModelUpdate:
         test_yaml_str = textwrap.dedent("""\
             data_module_args:
                 data_seed: 114
-                                        
+
             model_update:
                 presets:
                     - predict
@@ -450,7 +452,7 @@ class TestInferenceCommandLineSettings:
         test_yaml_str = textwrap.dedent("""\
             experiment_settings:
                 seeds:
-                  - 17 
+                  - 17
                   - 101
             """)
         test_yaml_file = tmp_path / "runner.yml"
@@ -476,7 +478,7 @@ class TestInferenceCommandLineSettings:
         test_yaml_str = textwrap.dedent(f"""\
             experiment_settings:
                 seeds:
-                  - {model_seed} 
+                  - {model_seed}
                   - 101
             """)
 
@@ -667,7 +669,8 @@ class TestRemoveQuerySetDuplicates:
 
 
 class TestSetupOpenFold:
-    def test_fresh_parameter_default_download(self, tmp_path):
+    def test_fresh_parameter_default_download(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("OPENFOLD_CACHE", raising=False)
         inputs = iter(
             [
                 str(tmp_path),  # Set cache directory
@@ -695,7 +698,8 @@ class TestSetupOpenFold:
             / OPENFOLD_MODEL_CHECKPOINT_REGISTRY[DEFAULT_CHECKPOINT_NAME].file_name
         ).exists()
 
-    def test_fresh_parameter_download_all(self, tmp_path):
+    def test_fresh_parameter_download_all(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("OPENFOLD_CACHE", raising=False)
         inputs = iter(
             [
                 str(tmp_path),  # Set cache directory
@@ -725,3 +729,15 @@ class TestSetupOpenFold:
             assert (
                 tmp_path / OPENFOLD_MODEL_CHECKPOINT_REGISTRY[ckpt_name].file_name
             ).exists()
+
+
+def test_skip_random_init_context_manager():
+    original_func = initialization.trunc_normal_init_
+
+    with skip_random_init():
+        # function should be noop
+        assert initialization.trunc_normal_init_ is not original_func
+        assert initialization.trunc_normal_init_.__name__ == "noop_init"
+
+    # function should be restored
+    assert initialization.trunc_normal_init_ is original_func

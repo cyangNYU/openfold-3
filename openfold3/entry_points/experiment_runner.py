@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import json
 import logging
 import operator
@@ -535,6 +536,21 @@ class TrainingExperimentRunner(ExperimentRunner):
         return _callbacks
 
 
+@contextlib.contextmanager
+def skip_random_init():
+    import openfold3.core.model.primitives.initialization as m
+
+    def noop_init(*args, **kwargs):
+        pass
+
+    original_trunc_normal_init = m.trunc_normal_init_
+    try:
+        m.trunc_normal_init_ = noop_init
+        yield
+    finally:
+        m.trunc_normal_init_ = original_trunc_normal_init
+
+
 class InferenceExperimentRunner(ExperimentRunner):
     """Inference experiment builder."""
 
@@ -579,6 +595,12 @@ class InferenceExperimentRunner(ExperimentRunner):
     @cached_property
     def num_diffusion_samples(self) -> int:
         return self.model_config.architecture.shared.diffusion.no_full_rollout_samples
+
+    @cached_property
+    def lightning_module(self) -> pl.LightningModule:
+        """Instantiate without random initialization to speed up inference setup."""
+        with skip_random_init():
+            return self.project_entry.runner(self.model_config, log_dir=self.log_dir)
 
     def update_config_with_cli_args(
         self,
